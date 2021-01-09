@@ -1,4 +1,5 @@
-É preciso ler o ficheiro etc/aurrasd.conf e a cada 3 linhas de texto, alocar isso em variavéis para saber a informação do ficheiro de configuração: 	alto -> mesma
+É preciso ler o ficheiro etc/aurrasd.conf e a cada 3 linhas de texto, alocar isso em variavéis para saber a informação do ficheiro de configuração: 	
+		alto -> mesma
 		aurrasd-gain-double -> mesma
 		2 -> mesma
 		
@@ -21,4 +22,5 @@
 
 
 É preciso construir um processo principal (pai) que consiga controlar os seus filhos que vão ser originados pelo (mesma, mesma1, mesma2, mesma3, mesma4). O processo principal consegue comunicar com os filhos (pipe com nome ou pipe anónimo talvez).
+https://www.geeksforgeeks.org/create-n-child-process-parent-process-using-fork-c/
 
