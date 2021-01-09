@@ -32,6 +32,12 @@ int main(int argc, char **argv){
 
     signal(SIGINT, siginthandler);
 
+
+    if(argc < 3){ // Método de utilização
+        printf("Utilização: ./servidor config-filename filters-folder \n");
+        return 1;
+    }
+
     printf("Servidor a executar...\n");
 
     char *fifo_escrita = "servidor.pipe"; //fifo para escrita
@@ -61,7 +67,12 @@ int main(int argc, char **argv){
         perror("Erro abertura pipe escrita");
         return -1;
     }
-    
+
+
+
+
+    // Aqui recebe os argumentos do cliente, após isso é fazer o processamento dos dados recebidos e executar.
+
     int stop = 0;
 
     pedido p1;

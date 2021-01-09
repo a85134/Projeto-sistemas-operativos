@@ -1,0 +1,24 @@
+É preciso ler o ficheiro etc/aurrasd.conf e a cada 3 linhas de texto, alocar isso em variavéis para saber a informação do ficheiro de configuração: 	alto -> mesma
+		aurrasd-gain-double -> mesma
+		2 -> mesma
+		
+		baixo -> mesma1
+		aurrasd-gain-half -> mesma1
+		2 -> mesma1
+		
+		eco -> mesma2
+		aurrasd-echo -> mesma2
+		1 -> mesma2
+		
+		rapido -> mesma3
+		aurrasd-tempo-double -> mesma3
+		2 -> mesma3
+		
+		lento -> mesma4
+		aurrasd-tempo-half -> mesma4
+		1 -> mesma4
+
+
+
+É preciso construir um processo principal (pai) que consiga controlar os seus filhos que vão ser originados pelo (mesma, mesma1, mesma2, mesma3, mesma4). O processo principal consegue comunicar com os filhos (pipe com nome ou pipe anónimo talvez).
+
