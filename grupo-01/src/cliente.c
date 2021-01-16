@@ -102,6 +102,12 @@ int main(int argc, char *argv[]){
             printf("Pedido n_filters: %d\n", p1.n_filtros);
             int stop = 0; // implementar ciclo ou não
             write(output, &p1, sizeof(pedido));
+            int bufferSize = 0;
+            char buffer_output[1024];
+            while((bufferSize = read(input, buffer_output, sizeof(buffer_output))) > 0) { // fica à espera de receber a resposta do servidor
+                printf("HELLO\n");
+            }
+            printf("Recebi, obrigado!\n");
             return 0;
         }
         else{

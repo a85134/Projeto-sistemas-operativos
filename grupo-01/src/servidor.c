@@ -16,8 +16,7 @@
 static const char config_filename[] = "../etc/aurrasd.conf";
 static const char filters_folder[] = "../bin/aurrasd-filters";
 static const char transform[] = "transform"; // transformar filtros
-static const char status[] = "status"; // ver status do servidor
-
+static const char status[] = "status";       // ver status do servidor
 
 void siginthandler(int sig)
 {
@@ -46,8 +45,8 @@ typedef struct Config
 
 } config;
 
-
-void ExecuteTransform(pedido p, config f[], int counter){ // Função transform
+void ExecuteTransform(pedido p, config f[], int counter, int output)
+{ // Função transform
     // Criar o ficheiro output
     // int fd_output = open(f_output, O_CREAT | O_RDWR, 0666);
     //printf("n_filtros: %d \n", p.n_filtros);
@@ -55,349 +54,317 @@ void ExecuteTransform(pedido p, config f[], int counter){ // Função transform
     int beforePipe = 0;
     //int afterPipe[2];
     //int outputPipe[2];
-    for(int i = 0; i < p.n_filtros; i++){
-        if(memcmp(p.filtros[i], "alto", strlen("alto")) == 0){ // Faz o processamento para o filtro alto   
-            for (int j = 0; j < counter; j++) {// counter = 5
-                if(memcmp(f[j].filter_name, "alto", strlen("alto")) == 0){
+    int outputPipe[p.n_filtros][2];
+    int filho[p.n_filtros];
+    int readyOutput = 0;
+    for (int i = 0; i < p.n_filtros; i++)
+    {
+        pipe(outputPipe[i + 1]);
+        outputPipe[0][0] = open(p.f_input, O_RDONLY);
+        if (memcmp(p.filtros[i], "alto", strlen("alto")) == 0)
+        { // Faz o processamento para o filtro alto
+            for (int j = 0; j < counter; j++)
+            { // counter = 5
+                if (memcmp(f[j].filter_name, "alto", strlen("alto")) == 0)
+                {
                     //int instancia = atoi(p.filtros[i]);
-                    printf("Instancias tipo alto: %d\n", f[j].n_instancia);// TEM DE DEVOLVER 2
-                    printf("Instancias: %d\n", instancia);
-                    if(instancia <= f[j].n_instancia){ // Se houver filtros disponivel deste tipo faz fork()
+                    //printf("Instancias tipo alto: %d\n", f[j].n_instancia);// TEM DE DEVOLVER 2
+                    //printf("Instancias: %d\n", instancia);
+                        readyOutput++;
                         f[j].n_instancia = f[j].n_instancia - 1;
+                        char file_filter[1024]; // filtro correspondente para fazer open (primeira parte)
+                        memcpy(&file_filter, &filters_folder, sizeof(filters_folder));
+                        //printf("filtrs folder size: %ld\n", sizeof(filters_folder));
+                        file_filter[sizeof(filters_folder) - 1] = '/';
+                        memcpy(&file_filter[sizeof(filters_folder)], &(f[j].filter_type), strlen(f[j].filter_type));
+                        //printf("file filter type size: %ld\n", strlen(f[j].filter_type));
+                        printf("file filter: %s\n", file_filter);
+                        printf("file input: %s\n", p.f_input);
+                        printf("file output: %s\n", p.f_output);
                         //printf("hello\n");
-                        if(!fork()){ // Processo filho que trata do processamento
-                            if(p.n_filtros == 1){ // caso seja só 1 filtro vai fazer a primeira parte do processamento (bin/aurrasd-filters/aurrasd-echo < samples/samples-1.m4a)
-                                char file_filter[1024]; // filtro correspondente para fazer open (primeira parte)
-                                memcpy(&file_filter, &filters_folder, sizeof(filters_folder));
-                                //printf("filtrs folder size: %ld\n", sizeof(filters_folder));
-                                file_filter[sizeof(filters_folder)-1] = '/';
-                                memcpy(&file_filter[sizeof(filters_folder)], &(f[j].filter_type), strlen(f[j].filter_type));
-                                //printf("file filter type size: %ld\n", strlen(f[j].filter_type));
-                                printf("file filter: %s\n", file_filter);
-                                printf("file input: %s\n", p.f_input);
-                                printf("file output: %s\n", p.f_output);
-                                // bin/aurrasd-filters/aurrasd-echo < samples/samples-1.m4a
-                                int fd_samples = open(p.f_input, O_RDONLY);
-                                int output[2];
-                                pipe(output);
-                                //int fd_file_filter = open(file_filter, O_RDONLY);
-                                if(!fork()){ 
-                                    dup2(fd_samples, 0);
-                                    close(fd_samples);
-                                    dup2(output[1], 1);
-                                    close(output[1]);
-                                    execlp(file_filter, file_filter, NULL); // executa o filtro
-                                    // resultado fica guardado no output[0]
-                                    _exit(1);
-                                }
-                                else{                                    
-                                    int pid;
-                                    int status;
-                                    pid = wait(&status);
-                                    status = WEXITSTATUS(status);
-                                    printf("Sou o pai e o meu filho %d terminou com código de saída %d \n", pid, status);
-                                    int fd_out = open(p.f_output, O_CREAT | O_WRONLY, 0666);   
-                                    int n = 0;
-                                    char buffer[1024];
-                                    while((n = read(output[0], buffer, sizeof(buffer))) > 0){
-                                        write(fd_out, buffer, n);
-                                    }
-                                    close(fd_out);
-                                
-                                    
+                        filho[i] = fork();
+                        if (filho[i] == 0)
+                        { // Processo filho que trata do processamento
+                            close(outputPipe[i][1]);
+                            dup2(outputPipe[i][0], 0);
+                            close(outputPipe[i][0]);
+                            close(outputPipe[i + 1][0]);
+                            dup2(outputPipe[i + 1][1], 1);
+                            close(outputPipe[i + 1][1]);
+                            // bin/aurrasd-filters/aurrasd-echo < samples/samples-1.m4a
+                            execlp(file_filter, file_filter, NULL);
+                            _exit(1);
+                        }
+                        else
+                        { // Processo pai que controla o seu filho
+                            if (i != 0)
+                            {
+                                close(outputPipe[i][0]);
+                                close(outputPipe[i][1]);
+                            }
+                            int status;
+                            if (filho[i] == wait(&status))
+                            {
+                                if (WEXITSTATUS(status))
+                                {
+                                    close(outputPipe[i + 1][0]);
+                                    close(outputPipe[i + 1][1]);
+                                    //return 1;
                                 }
                             }
-                            else{ // Caso tenha mais que 1 filtro, chama a função ciclo()
-                            
+                            printf("Sou o pai %d e o meu filho %d terminou com código de saída %d \n", getppid(), filho[i], status);
+                        }
+                  
+                }
+            }
+        }
+        if (memcmp(p.filtros[i], "baixo", strlen("baixo")) == 0)
+        { // Faz o processamento para o filtro baixo
+            for (int j = 0; j < counter; j++)
+            { // counter = 5
+                if (memcmp(f[j].filter_name, "baixo", strlen("baixo")) == 0)
+                {
+                    //printf("Instancias deste tipo: %d\n", f[i].n_instancia);// TEM DE DEVOLVER 2
+                    //printf("Instancias: %d\n", instancia);
+                        readyOutput++;
+                        f[j].n_instancia = f[j].n_instancia - 1;
+                        char file_filter[1024]; // filtro correspondente para fazer open (primeira parte)
+                        memcpy(&file_filter, &filters_folder, sizeof(filters_folder));
+                        //printf("filtrs folder size: %ld\n", sizeof(filters_folder));
+                        file_filter[sizeof(filters_folder) - 1] = '/';
+                        memcpy(&file_filter[sizeof(filters_folder)], &(f[j].filter_type), strlen(f[j].filter_type));
+                        //printf("file filter type size: %ld\n", strlen(f[j].filter_type));
+                        printf("file filter: %s\n", file_filter);
+                        printf("file input: %s\n", p.f_input);
+                        printf("file output: %s\n", p.f_output);
+                        //printf("hello\n");
+                        filho[i] = fork();
+                        if (filho[i] == 0)
+                        { // Processo filho que trata do processamento
+                            close(outputPipe[i][1]);
+                            dup2(outputPipe[i][0], 0);
+                            close(outputPipe[i][0]);
+                            close(outputPipe[i + 1][0]);
+                            dup2(outputPipe[i + 1][1], 1);
+                            close(outputPipe[i + 1][1]);
+                            // bin/aurrasd-filters/aurrasd-echo < samples/samples-1.m4a
+                            execlp(file_filter, file_filter, NULL);
+                            _exit(1);
+                        }
+                        else
+                        { // Processo pai que controla o seu filho
+                            if (i != 0)
+                            {
+                                close(outputPipe[i][0]);
+                                close(outputPipe[i][1]);
                             }
-                            
-                            
-                            _exit(0);
-                            
-                        } // Processo pai que controla o seu filho
-                        int pid;
-                        int status;
-                        pid = wait(&status);
-                        status = WEXITSTATUS(status);
-                        printf("Sou o pai e o meu filho %d terminou com código de saída %d \n", pid, status);
-                    }  
+                            int status;
+                            if (filho[i] == wait(&status))
+                            {
+                                if (WEXITSTATUS(status))
+                                {
+                                    close(outputPipe[i + 1][0]);
+                                    close(outputPipe[i + 1][1]);
+                                    //return 1;
+                                }
+                            }
+                            printf("Sou o pai %d e o meu filho %d terminou com código de saída %d \n", getppid(), filho[i], status);
+                        }
                     
                 }
             }
         }
-        if(memcmp(p.filtros[i], "baixo", strlen("baixo")) == 0){ // Faz o processamento para o filtro baixo
-            for (int j = 0; j < counter; j++) {// counter = 5
-                if(memcmp(f[j].filter_name, "baixo", strlen("baixo")) == 0){
-                    printf("Instancias deste tipo: %d\n", f[i].n_instancia);// TEM DE DEVOLVER 2
-                    printf("Instancias: %d\n", instancia);
-                    if(instancia <= f[j].n_instancia){ // Se houver filtros disponivel deste tipo faz fork()
+        if (memcmp(p.filtros[i], "eco", strlen("eco")) == 0)
+        { // Faz o processamento para o filtro eco
+            for (int j = 0; j < counter; j++)
+            { // counter = 5
+                if (memcmp(f[j].filter_name, "eco", strlen("eco")) == 0)
+                {
+                    //printf("Instancias deste tipo: %d\n", f[j].n_instancia);// TEM DE DEVOLVER 1
+                    //printf("Instancias: %d\n", instancia);
+            
+                        readyOutput++;
                         f[j].n_instancia = f[j].n_instancia - 1;
+                        char file_filter[1024]; // filtro correspondente para fazer open (primeira parte)
+                        memcpy(&file_filter, &filters_folder, sizeof(filters_folder));
+                        //printf("filtrs folder size: %ld\n", sizeof(filters_folder));
+                        file_filter[sizeof(filters_folder) - 1] = '/';
+                        memcpy(&file_filter[sizeof(filters_folder)], &(f[j].filter_type), strlen(f[j].filter_type));
+                        //printf("file filter type size: %ld\n", strlen(f[j].filter_type));
+                        printf("file filter: %s\n", file_filter);
+                        printf("file input: %s\n", p.f_input);
+                        printf("file output: %s\n", p.f_output);
                         //printf("hello\n");
-                        if(!fork()){ // Processo filho que trata do processamento
-                            if(p.n_filtros == 1){ // caso seja só 1 filtro vai fazer a primeira parte do processamento (bin/aurrasd-filters/aurrasd-echo < samples/samples-1.m4a)
-                                char file_filter[1024]; // filtro correspondente para fazer open (primeira parte)
-                                memcpy(&file_filter, &filters_folder, sizeof(filters_folder));
-                                //printf("filtrs folder size: %ld\n", sizeof(filters_folder));
-                                file_filter[sizeof(filters_folder)-1] = '/';
-                                memcpy(&file_filter[sizeof(filters_folder)], &(f[j].filter_type), strlen(f[j].filter_type));
-                                //printf("file filter type size: %ld\n", strlen(f[j].filter_type));
-                                printf("file filter: %s\n", file_filter);
-                                printf("file input: %s\n", p.f_input);
-                                printf("file output: %s\n", p.f_output);
-                                // bin/aurrasd-filters/aurrasd-echo < samples/samples-1.m4a
-                                int fd_samples = open(p.f_input, O_RDONLY);
-                                int output[2];
-                                pipe(output);
-                                //int fd_file_filter = open(file_filter, O_RDONLY);
-                                if(!fork()){ 
-                                    dup2(fd_samples, 0);
-                                    close(fd_samples);
-                                    dup2(output[1], 1);
-                                    close(output[1]);
-                                    execlp(file_filter, file_filter, NULL); // executa o filtro
-                                    // resultado fica guardado no output[0]
-                                    _exit(1);
-                                }
-                                else{                                    
-                                    int pid;
-                                    int status;
-                                    pid = wait(&status);
-                                    status = WEXITSTATUS(status);
-                                    printf("Sou o pai e o meu filho %d terminou com código de saída %d \n", pid, status);
-                                    int fd_out = open(p.f_output, O_CREAT | O_WRONLY, 0666);   
-                                    int n = 0;
-                                    char buffer[1024];
-                                    while((n = read(output[0], buffer, sizeof(buffer))) > 0){
-                                        write(fd_out, buffer, n);
-                                    }
-                                    close(fd_out);
-                                       
+                        filho[i] = fork();
+                        if (filho[i] == 0)
+                        { // Processo filho que trata do processamento
+                            close(outputPipe[i][1]);
+                            dup2(outputPipe[i][0], 0);
+                            close(outputPipe[i][0]);
+                            close(outputPipe[i + 1][0]);
+                            dup2(outputPipe[i + 1][1], 1);
+                            close(outputPipe[i + 1][1]);
+                            // bin/aurrasd-filters/aurrasd-echo < samples/samples-1.m4a
+                            execlp(file_filter, file_filter, NULL);
+                            _exit(1);
+                        }
+                        else
+                        { // Processo pai que controla o seu filho
+                            if (i != 0)
+                            {
+                                close(outputPipe[i][0]);
+                                close(outputPipe[i][1]);
+                            }
+                            int status;
+                            if (filho[i] == wait(&status))
+                            {
+                                if (WEXITSTATUS(status))
+                                {
+                                    close(outputPipe[i + 1][0]);
+                                    close(outputPipe[i + 1][1]);
+                                    //return 1;
                                 }
                             }
-                            else{ // Caso tenha mais que 1 filtro, chama a função ciclo()
-
-                            }
-                            
-                            
-                            _exit(0);
-                            
-                        } // Processo pai que controla o seu filho
-                        int pid;
-                        int status;
-                        pid = wait(&status);
-                        status = WEXITSTATUS(status);
-                        printf("Sou o pai e o meu filho %d terminou com código de saída %d \n", pid, status);
-                    }
+                            printf("Sou o pai %d e o meu filho %d terminou com código de saída %d \n", getppid(), filho[i], status);
+                        }
+                   
                 }
             }
         }
-        if(memcmp(p.filtros[i], "eco", strlen("eco")) == 0){ // Faz o processamento para o filtro eco
-            for (int j = 0; j < counter; j++) {// counter = 5
-                if(memcmp(f[j].filter_name, "eco", strlen("eco")) == 0){
-                    printf("Instancias deste tipo: %d\n", f[j].n_instancia);// TEM DE DEVOLVER 1
-                    printf("Instancias: %d\n", instancia);
-                    if(instancia <= f[j].n_instancia){ // Se houver filtros disponivel deste tipo faz fork()
+        if (memcmp(p.filtros[i], "rapido", strlen("rapido")) == 0)
+        { // Faz o processamento para o filtro rapido
+            for (int j = 0; j < counter; j++)
+            { // counter = 5
+                if (memcmp(f[j].filter_name, "rapido", strlen("rapido")) == 0)
+                {
+                    //printf("Instancias deste tipo: %d\n ", f[j].n_instancia);// TEM DE DEVOLVER 2
+                    //printf("Instancias: %d\n", instancia);
+                    
+                        readyOutput++;
                         f[j].n_instancia = f[j].n_instancia - 1;
+                        char file_filter[1024]; // filtro correspondente para fazer open (primeira parte)
+                        memcpy(&file_filter, &filters_folder, sizeof(filters_folder));
+                        //printf("filtrs folder size: %ld\n", sizeof(filters_folder));
+                        file_filter[sizeof(filters_folder) - 1] = '/';
+                        memcpy(&file_filter[sizeof(filters_folder)], &(f[j].filter_type), strlen(f[j].filter_type));
+                        //printf("file filter type size: %ld\n", strlen(f[j].filter_type));
+                        printf("file filter: %s\n", file_filter);
+                        printf("file input: %s\n", p.f_input);
+                        printf("file output: %s\n", p.f_output);
                         //printf("hello\n");
-                        if(!fork()){ // Processo filho que trata do processamento
-                            if(p.n_filtros == 1){ // caso seja só 1 filtro vai fazer a primeira parte do processamento (bin/aurrasd-filters/aurrasd-echo < samples/samples-1.m4a)
-                                char file_filter[1024]; // filtro correspondente para fazer open (primeira parte)
-                                memcpy(&file_filter, &filters_folder, sizeof(filters_folder));
-                                //printf("filtrs folder size: %ld\n", sizeof(filters_folder));
-                                file_filter[sizeof(filters_folder)-1] = '/';
-                                memcpy(&file_filter[sizeof(filters_folder)], &(f[j].filter_type), strlen(f[j].filter_type));
-                                //printf("file filter type size: %ld\n", strlen(f[j].filter_type));
-                                printf("file filter: %s\n", file_filter);;
-                                printf("file input: %s\n", p.f_input);
-                                // bin/aurrasd-filters/aurrasd-echo < samples/samples-1.m4a
-                                int fd_samples = open(p.f_input, O_RDONLY);
-                                //int fd_file_filter = open(file_filter, O_RDONLY);
-                                int output[2];
-                                pipe(output);
-                                if(!fork()){ 
-                                    dup2(fd_samples, 0);
-                                    close(fd_samples);
-                                    dup2(output[1], 1);
-                                    close(output[1]);
-                                    execlp(file_filter, file_filter, NULL); // executa o filtro 
-                                    _exit(1);
-                                }
-                                else{                                    
-                                    int pid;
-                                    int status;
-                                    pid = wait(&status);
-                                    status = WEXITSTATUS(status);
-                                    printf("Sou o pai e o meu filho %d terminou com código de saída %d \n", pid, status);
-                                    int fd_out = open(p.f_output, O_CREAT | O_WRONLY, 0666);   
-                                    int n = 0;
-                                    char buffer[1024];
-                                    while((n = read(output[0], buffer, sizeof(buffer))) > 0){
-                                        write(fd_out, buffer, n);
-                                    }
-                                    close(fd_out);
-                                    
+                        filho[i] = fork();
+                        if (filho[i] == 0)
+                        { // Processo filho que trata do processamento
+                            close(outputPipe[i][1]);
+                            dup2(outputPipe[i][0], 0);
+                            close(outputPipe[i][0]);
+                            close(outputPipe[i + 1][0]);
+                            dup2(outputPipe[i + 1][1], 1);
+                            close(outputPipe[i + 1][1]);
+                            // bin/aurrasd-filters/aurrasd-echo < samples/samples-1.m4a
+                            execlp(file_filter, file_filter, NULL);
+                            _exit(1);
+                        }
+                        else
+                        { // Processo pai que controla o seu filho
+                            if (i != 0)
+                            {
+                                close(outputPipe[i][0]);
+                                close(outputPipe[i][1]);
+                            }
+                            int status;
+                            if (filho[i] == wait(&status))
+                            {
+                                if (WEXITSTATUS(status))
+                                {
+                                    close(outputPipe[i + 1][0]);
+                                    close(outputPipe[i + 1][1]);
+                                    //return 1;
                                 }
                             }
-                            else{ // Caso tenha mais que 1 filtro, chama a função ciclo()
-
-                            }
-                            
-                            
-                            _exit(0);
-                            
-                        } // Processo pai que controla o seu filho
-                        int pid;
-                        int status;
-                        pid = wait(&status);
-                        status = WEXITSTATUS(status);
-                        printf("Sou o pai e o meu filho %d terminou com código de saída %d \n", pid, status);
-                    }  
+                            printf("Sou o pai %d e o meu filho %d terminou com código de saída %d \n", getppid(), filho[i], status);
+                        }
                 }
             }
         }
-        if(memcmp(p.filtros[i], "rapido", strlen("rapido")) == 0){ // Faz o processamento para o filtro rapido
-            for (int j = 0; j < counter; j++) {// counter = 5
-                if(memcmp(f[j].filter_name, "rapido", strlen("rapido")) == 0){
-                    printf("Instancias deste tipo: %d\n ", f[j].n_instancia);// TEM DE DEVOLVER 2
-                    printf("Instancias: %d\n", instancia);
-                    if(instancia <= f[j].n_instancia){ // Se houver filtros disponivel deste tipo faz fork()
+        if (memcmp(p.filtros[i], "lento", strlen("lento")) == 0)
+        { // Faz o processamento para o filtro lento
+            for (int j = 0; j < counter; j++)
+            { // counter = 5
+                if (memcmp(f[j].filter_name, "lento", strlen("lento")) == 0)
+                {
+                    //printf("Instancias deste tipo: %d\n ", f[j].n_instancia);// TEM DE DEVOLVER 1
+                    //printf("Instancias: %d\n", instancia);
+                        readyOutput++;
                         f[j].n_instancia = f[j].n_instancia - 1;
+                        char file_filter[1024]; // filtro correspondente para fazer open (primeira parte)
+                        memcpy(&file_filter, &filters_folder, sizeof(filters_folder));
+                        //printf("filtrs folder size: %ld\n", sizeof(filters_folder));
+                        file_filter[sizeof(filters_folder) - 1] = '/';
+                        memcpy(&file_filter[sizeof(filters_folder)], &(f[j].filter_type), strlen(f[j].filter_type));
+                        //printf("file filter type size: %ld\n", strlen(f[j].filter_type));
+                        printf("file filter: %s\n", file_filter);
+                        printf("file input: %s\n", p.f_input);
+                        printf("file output: %s\n", p.f_output);
                         //printf("hello\n");
-                        if(!fork()){ // Processo filho que trata do processamento
-                            if(p.n_filtros == 1){ // caso seja o filtro inicial vai fazer a primeira parte do processamento (bin/aurrasd-filters/aurrasd-echo < samples/samples-1.m4a)
-                                char file_filter[1024]; // filtro correspondente para fazer open (primeira parte)
-                                memcpy(&file_filter, &filters_folder, sizeof(filters_folder));
-                                //printf("filtrs folder size: %ld\n", sizeof(filters_folder));
-                                file_filter[sizeof(filters_folder)-1] = '/';
-                                memcpy(&file_filter[sizeof(filters_folder)], &(f[j].filter_type), strlen(f[j].filter_type));
-                                //printf("file filter type size: %ld\n", strlen(f[j].filter_type));
-                                printf("file filter: %s\n", file_filter);
-                                printf("file input: %s\n", p.f_input);
-                                printf("file output: %s\n", p.f_output);
-                                // bin/aurrasd-filters/aurrasd-echo < samples/samples-1.m4a
-                                int fd_samples = open(p.f_input, O_RDONLY);
-                                int output[2];
-                                pipe(output);
-                                //int fd_file_filter = open(file_filter, O_RDONLY);
-                                if(!fork()){ 
-                                    dup2(fd_samples, 0);
-                                    close(fd_samples);
-                                    dup2(output[1], 1);
-                                    close(output[1]);
-                                    execlp(file_filter, file_filter, NULL); // executa o filtro
-                                    // resultado fica guardado no output[0]
-                                    _exit(1);
-                                }
-                                else{                                    
-                                    int pid;
-                                    int status;
-                                    pid = wait(&status);
-                                    status = WEXITSTATUS(status);
-                                    printf("Sou o pai e o meu filho %d terminou com código de saída %d \n", pid, status);
-                                    int fd_out = open(p.f_output, O_CREAT | O_WRONLY, 0666);   
-                                    int n = 0;
-                                    char buffer[1024];
-                                    while((n = read(output[0], buffer, sizeof(buffer))) > 0){
-                                        write(fd_out, buffer, n);
-                                    }
-                                    close(fd_out);
-                                   
+                        filho[i] = fork();
+                        if (filho[i] == 0)
+                        { // Processo filho que trata do processamento
+                            close(outputPipe[i][1]);
+                            dup2(outputPipe[i][0], 0);
+                            close(outputPipe[i][0]);
+                            close(outputPipe[i + 1][0]);
+                            dup2(outputPipe[i + 1][1], 1);
+                            close(outputPipe[i + 1][1]);
+                            // bin/aurrasd-filters/aurrasd-echo < samples/samples-1.m4a
+                            execlp(file_filter, file_filter, NULL);
+                            _exit(1);
+                        }
+                        else
+                        { // Processo pai que controla o seu filho
+                            if (i != 0)
+                            {
+                                close(outputPipe[i][0]);
+                                close(outputPipe[i][1]);
+                            }
+                            int status;
+                            if (filho[i] == wait(&status))
+                            {
+                                if (WEXITSTATUS(status))
+                                {
+                                    close(outputPipe[i + 1][0]);
+                                    close(outputPipe[i + 1][1]);
+                                    //return 1;
                                 }
                             }
-                            else{ // Caso tenha mais que 1 filtro, chama a função ciclo()
-
-                            }
-                            
-                            
-                            _exit(0);
-                            
-                        } // Processo pai que controla o seu filho
-                        int pid;
-                        int status;
-                        pid = wait(&status);
-                        status = WEXITSTATUS(status);
-                        printf("Sou o pai e o meu filho %d terminou com código de saída %d \n", pid, status);
-                    }
-
+                            printf("Sou o pai %d e o meu filho %d terminou com código de saída %d \n", getppid(), filho[i], status);
+                        }
+                    
                 }
             }
         }
-        if(memcmp(p.filtros[i], "lento", strlen("lento")) == 0){ // Faz o processamento para o filtro lento
-            for (int j = 0; j < counter; j++) {// counter = 5
-                if(memcmp(f[j].filter_name, "lento", strlen("lento")) == 0){
-                    printf("Instancias deste tipo: %d\n ", f[j].n_instancia);// TEM DE DEVOLVER 1
-                    printf("Instancias: %d\n", instancia);
-                    if(instancia <= f[j].n_instancia){ // Se houver filtros disponivel deste tipo faz fork()
-                        f[j].n_instancia = f[j].n_instancia - 1;
-                        //printf("hello\n");
-                        if(!fork()){ // Processo filho que trata do processamento
-                            if(p.n_filtros == 1){ // caso seja o filtro inicial vai fazer a primeira parte do processamento (bin/aurrasd-filters/aurrasd-echo < samples/samples-1.m4a)
-                                char file_filter[1024]; // filtro correspondente para fazer open (primeira parte)
-                                memcpy(&file_filter, &filters_folder, sizeof(filters_folder));
-                                //printf("filtrs folder size: %ld\n", sizeof(filters_folder));
-                                file_filter[sizeof(filters_folder)-1] = '/';
-                                memcpy(&file_filter[sizeof(filters_folder)], &(f[j].filter_type), strlen(f[j].filter_type));
-                                //printf("file filter type size: %ld\n", strlen(f[j].filter_type));
-                                printf("file filter: %s\n", file_filter);
-                                printf("file input: %s\n", p.f_input);
-                                printf("file output: %s\n", p.f_output);
-                                // bin/aurrasd-filters/aurrasd-echo < samples/samples-1.m4a
-                                int fd_samples = open(p.f_input, O_RDONLY);
-                                int output[2];
-                                pipe(output);
-                                //int fd_file_filter = open(file_filter, O_RDONLY);
-                                if(!fork()){ 
-                                    dup2(fd_samples, 0);
-                                    close(fd_samples);
-                                    dup2(output[1], 1);
-                                    close(output[1]);
-                                    execlp(file_filter, file_filter, NULL); // executa o filtro
-                                    // resultado fica guardado no output[0]
-                                    _exit(1);
-                                }
-                                else{                                    
-                                    int pid;
-                                    int status;
-                                    pid = wait(&status);
-                                    status = WEXITSTATUS(status);
-                                    printf("Sou o pai e o meu filho %d terminou com código de saída %d \n", pid, status);
-                                    int fd_out = open(p.f_output, O_CREAT | O_WRONLY, 0666);   
-                                    int n = 0;
-                                    char buffer[1024];
-                                    while((n = read(output[0], buffer, sizeof(buffer))) > 0){
-                                        write(fd_out, buffer, n);
-                                    }
-                                    close(fd_out);
-                                    
-                                }
-                            }
-                            else{ // Caso tenha mais que 1 filtro, chama a função ciclo()
-
-                            }
-                            
-                            
-                            _exit(0);
-                            
-                        } // Processo pai que controla o seu filho
-                        int pid;
-                        int status;
-                        pid = wait(&status);
-                        status = WEXITSTATUS(status);
-                        printf("Sou o pai e o meu filho %d terminou com código de saída %d \n", pid, status);
-                    }
-                }
+        if (readyOutput == p.n_filtros)
+        {
+            close(outputPipe[p.n_filtros][1]);
+            int fd_out = open(p.f_output, O_CREAT | O_WRONLY, 0666);
+            int n = 0;
+            char buffer[1024];
+            while ((n = read(outputPipe[p.n_filtros][0], buffer, sizeof(buffer))) > 0)
+            {
+                write(fd_out, buffer, sizeof(buffer));
+                write(output, buffer, sizeof(buffer)); // servidor envia o resultado do pedido do cliente
+                printf("A repetir...\n");
             }
+            printf("OUTPUT FEITO !\n");
+            close(outputPipe[p.n_filtros][0]);
+            close(fd_out);
         }
-       
     }
-    
 }
 
-void ExecuteStatus(){ // Função transform
-    
+void ExecuteStatus()
+{ // Função transform
 }
-
-
 
 int main(int argc, char *argv[])
 {
@@ -522,10 +489,11 @@ int main(int argc, char *argv[])
     printf("N_INSTANCIAS: %d\n", total_instancias); //devolve 8
 
     // Aqui recebe os argumentos do cliente, após isso é fazer o processamento dos dados recebidos e executar.
-    
+
     int stop = 0;
 
     pedido p1;
+    bool execute = false;
 
     while (!stop)
     {
@@ -539,31 +507,105 @@ int main(int argc, char *argv[])
                 printf("Pedido recebido filtros: %s\n", p1.filtros[i]);
             }
             printf("Pedido recebido n_filtros: %d\n", p1.n_filtros);
-            if(memcmp(p1.tipo, transform, strlen(transform)) == 0){ // se for transform a receber, processa os dados
-                printf("ENTROU TRANSFORM \n");
+            if (memcmp(p1.tipo, transform, strlen(transform)) == 0)
+            { // se for transform a receber, processa os dados
+                // printf("ENTROU TRANSFORM \n");
                 // Recebe pedido e cria filho para tratar do pedido
                 // Dentro da função,
-                if(!fork()){ // Processo pai que gere os seus filhos e netos
-                    ExecuteTransform(p1, file_configuration, counter); // retorna o ficheiro output
+                for (int i = 0; i < p1.n_filtros; i++)
+                {
+                    if (memcmp(p1.filtros[i], "alto", strlen("alto")) == 0)
+                    {
+                        for (int j = 0; j < counter; j++)
+                        { // counter = 5
+                            if (memcmp(file_configuration[j].filter_name, "alto", strlen("alto")) == 0)
+                            {
+                                printf("Instancias deste tipo: %d\n ", file_configuration[j].n_instancia); // TEM DE DEVOLVER 1
+                                file_configuration[j].n_instancia = file_configuration[j].n_instancia - 1;
+                            }
+                        }
+                    }
+                    if (memcmp(p1.filtros[i], "baixo", strlen("baixo")) == 0)
+                    {
+                        for (int j = 0; j < counter; j++)
+                        {
+                            if (memcmp(file_configuration[j].filter_name, "baixo", strlen("baixo")) == 0)
+                            {
+                                printf("Instancias deste tipo: %d\n ", file_configuration[j].n_instancia); // TEM DE DEVOLVER 1
+                                file_configuration[j].n_instancia = file_configuration[j].n_instancia - 1;
+                            }
+                        }
+                    }
+                    if (memcmp(p1.filtros[i], "eco", strlen("eco")) == 0)
+                    {
+                        for (int j = 0; j < counter; j++)
+                        {
+                            if (memcmp(file_configuration[j].filter_name, "eco", strlen("eco")) == 0)
+                            {
+                                printf("Instancias deste tipo: %d\n ", file_configuration[j].n_instancia); // TEM DE DEVOLVER 1
+                                file_configuration[j].n_instancia = file_configuration[j].n_instancia - 1;
+                            }
+                        }
+                    }
+                    if (memcmp(p1.filtros[i], "rapido", strlen("rapido")) == 0)
+                    {
+                        for (int j = 0; j < counter; j++)
+                        {
+                            if (memcmp(file_configuration[j].filter_name, "rapido", strlen("rapido")) == 0)
+                            {
+                                printf("Instancias deste tipo: %d\n ", file_configuration[j].n_instancia); // TEM DE DEVOLVER 1
+                                file_configuration[j].n_instancia = file_configuration[j].n_instancia - 1;
+                            }
+                        }
+                    }
+                    if (memcmp(p1.filtros[i], "lento", strlen("lento")) == 0)
+                    {
+                        for (int j = 0; j < counter; j++)
+                        {
+                            if (memcmp(file_configuration[j].filter_name, "lento", strlen("lento")) == 0)
+                            {
+                                printf("Instancias deste tipo: %d\n ", file_configuration[j].n_instancia); // TEM DE DEVOLVER 1
+                                file_configuration[j].n_instancia = file_configuration[j].n_instancia - 1;
+                                //printf("Instancias deste tipo: %d\n ", file_configuration[j].n_instancia);
+                            }
+                        }
+                    }
                 }
-                // chama função que processa os dados e retorna o resultado 
-                // faz write desse resultado 
+                for (int i = 0; i < p1.n_filtros; i++)
+                {
+                    for (int j = 0; j < counter; j++)
+                    {
+                        if (file_configuration[j].n_instancia < 0)
+                        {
+                            
+                            execute = true;
+                            
+                        }
+                    }
+                }
+                if(execute == true){ 
+                    printf("Não pode ser processado o pedido!\n");
+                }
+                if(execute == false){
+                    if(!fork()){
+                        ExecuteTransform(p1, file_configuration, counter, output);
+                    }
+                }
+                
 
-    
+                // chama função que processa os dados e retorna o resultado
+                // faz write desse resultado
             }
-            if(memcmp(p1.tipo, status, strlen(status)) == 0){ // se for status a receber, envia o status do servidor
+            if (memcmp(p1.tipo, status, strlen(status)) == 0)
+            { // se for status a receber, envia o status do servidor
                 printf("ENTROU STATUS \n");
                 ExecuteStatus();
                 // chama função que faz o status e retorna o resultado
                 // faz write desse resultado
-    
             }
-        
         }
-        
-        
     }
-    
+
     kill(getpid(), SIGINT);
     return 0;
 }
