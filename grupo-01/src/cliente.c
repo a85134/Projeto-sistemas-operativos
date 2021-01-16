@@ -9,16 +9,24 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <stdbool.h> 
 
 #define MAX_BUFFER 1024 
 
 static const char transform[] = "transform"; // transformar filtros
 static const char status[] = "status"; // ver status do servidor
+static const char file_input_confirmation[] = "../samples";
 
+bool startsWith(const char *pre, const char *str)
+{
+    size_t lenpre = strlen(pre),
+           lenstr = strlen(str);
+    return lenstr < lenpre ? false : memcmp(pre, str, lenpre) == 0;
+}
 
 typedef struct Pedido{
 
-    int tipo; // transform ou status
+    char tipo[20]; // transform ou status
     int n_filtros; // numero de filtros 
     char f_input[1024]; // ficheiro input  
     char f_output[1024]; // ficheiro output
@@ -31,43 +39,12 @@ int main(int argc, char *argv[]){
 
     char filters[128][1024];
     
-    if(argc < 5){ // Método de utilização
+    if(argc < 2){ // Método de utilização
         printf("Utilização: ./cliente transform input-filename output-filename filter-id-1 filter-id-2 ... \n");
+        printf("OU \n");
+        printf("Utilização: ./cliente status \n");
         return 1;
     }
-
-    pedido p1; //cliente entrou para efetuar pedido
-
-    if(memcmp(argv[1], status, strlen(argv[1])) == 0){ // Deteta que é status e procede ao seu pedido
-        // pegar os argumentos da linha de comando e adicionar à estrutura para posteriormente enviar ao servidor
-        p1.tipo = 1; // tipo 1 indica que é status
-        printf("ENTROU1\n");
-    }
-    
-    if(memcmp(argv[1], transform, strlen(argv[1])) == 0){ // Deteta que é transform e procede ao seu pedido
-        // pegar os argumentos da linha de comando e adicionar à estrutura para posteriormente enviar ao servidor
-        p1.tipo = 1;
-        strcpy(p1.f_input, argv[2]);
-        strcpy(p1.f_output, argv[3]);
-        p1.n_filtros = argc - 4;
-        int increment = 0;
-        for(int i = 4; i < argc; i++){
-            for(int j = 0; j < strlen(argv[i]); j++){
-                filters[i-4][j] = argv[i][j];
-                
-            }
-            strcpy(p1.filtros[increment], filters[i-4]);
-            printf("PEDIDO Filtro: %s\n", p1.filtros[increment]);
-            increment++;
-        }
-        printf("Pedido tipo: %d\n", p1.tipo);
-        printf("Pedido file_input: %s\n", p1.f_input);
-        printf("Pedido file_output: %s\n", p1.f_output);
-        printf("Pedido n_filters: %d\n", p1.n_filtros);
-    }
-
-
-    printf("Cliente a executar...\n");
 
     char *fifo_leitura = "servidor.pipe"; //fifo para escrita
     char *fifo_escrita = "cliente.pipe"; //fifo para leitura
@@ -81,16 +58,58 @@ int main(int argc, char *argv[]){
         perror("Erro abertura pipe escrita");
         return -1;
     }
-
+    
     int input = open(fifo_leitura, O_RDONLY);
     if(input < 0){
         perror("Erro abertura pipe leitura");
         return -1;    
     }
 
-    int stop = 0;
+    pedido p1; //cliente entrou para efetuar pedido
+
+    if(memcmp(argv[1], status, strlen(status)) == 0 && argc == 2){ // Deteta que é status e procede ao seu pedido
+        // pegar os argumentos da linha de comando e adicionar à estrutura para posteriormente enviar ao servidor
+        printf("Cliente a executar...\n");
+        strcpy(p1.tipo, argv[1]);
+        printf("ENTROU1\n");
+        int stop = 0;
+        write(output, &p1, sizeof(pedido));
+        return 0;
+    }
     
-    write(output, &p1, sizeof(pedido));
+    if(memcmp(argv[1], transform, strlen(transform)) == 0 && argc >= 5){ // Deteta que é transform e procede ao seu pedido
+        // pegar os argumentos da linha de comando e adicionar à estrutura para posteriormente enviar ao servidor
+        if(startsWith(file_input_confirmation, argv[2]) == true){
+            printf("Cliente a executar...\n");
+            printf("ENTROU2\n");
+            strcpy(p1.tipo, argv[1]);
+            strcpy(p1.f_input, argv[2]);
+            strcpy(p1.f_output, argv[3]);
+            p1.n_filtros = argc - 4;
+            int increment = 0;
+            for(int i = 4; i < argc; i++){
+                for(int j = 0; j < strlen(argv[i]); j++){
+                    filters[i-4][j] = argv[i][j];
+                
+                }
+                strcpy(p1.filtros[increment], filters[i-4]);
+                printf("PEDIDO Filtro: %s\n", p1.filtros[increment]);
+                increment++;
+            }
+            printf("Pedido tipo: %s\n", p1.tipo);
+            printf("Pedido file_input: %s\n", p1.f_input);
+            printf("Pedido file_output: %s\n", p1.f_output);
+            printf("Pedido n_filters: %d\n", p1.n_filtros);
+            int stop = 0; // implementar ciclo ou não
+            write(output, &p1, sizeof(pedido));
+            return 0;
+        }
+        else{
+            printf("Exemplo: ./cliente transform ../samples/sample-1.m4a output.m4a alto alto alto \n");
+            return 1;
+        }
+        
+        
+    }
     
-    return 0;
 }
