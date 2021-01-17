@@ -32,12 +32,20 @@ typedef struct Pedido{
     char f_output[1024]; // ficheiro output
     char filtros[128][1024]; // filtros
   
-}pedido; 
+}pedido;
+
+typedef struct Process
+{
+    int pid;     // pid correspondente ao processo
+    char numero_filtros[5]; // alto(0), baixo(1), eco(2), rapido(3), lento(4)
+
+} process;
 
 
 int main(int argc, char *argv[]){
 
     char filters[128][1024];
+    process pr[20] = {-1};
     
     if(argc < 2){ // Método de utilização
         printf("Utilização: ./cliente transform input-filename output-filename filter-id-1 filter-id-2 ... \n");
@@ -74,6 +82,26 @@ int main(int argc, char *argv[]){
         printf("ENTROU1\n");
         int stop = 0;
         write(output, &p1, sizeof(pedido));
+        int output_instancia[5][2] = {};
+        char str[1024];
+        int n = 0;
+        while((n = read(input, str, strlen(str))) > 0){
+            write(1, str, n);
+        }
+        //     read(input, &pr, sizeof(process)); // Lê o numero dos processos que tratam dos pedidos
+        // for(int k = 0; k < 20; k++){
+        //     if(pr[k].pid != 0){
+        //         printf("pid: %d\n", pr[k].pid); // pid de todos os processos que tratam dos pedidos
+        //     }
+        // }
+        // //int output_instancia_2[5][2];
+        // read(input, str, sizeof(str)); // Lê os filtros em uso e totais
+        //strcpy(output_instancia_2, output_instancia);strlen
+        // printf("filter alto: %d/%d (in use/total)\n", output_instancia[0][0], output_instancia[0][1]);
+        // printf("filter baixo: %d/%d (in use/total)\n", output_instancia[1][0], output_instancia[1][1]);
+        // printf("filter eco: %d/%d (in use/total)\n", output_instancia[2][0], output_instancia[2][1]);
+        // printf("filter rapido: %d/%d (in use/total)\n", output_instancia[3][0], output_instancia[3][1]);
+        // printf("filter lento: %d/%d (in use/total)\n", output_instancia[4][0], output_instancia[4][1]);
         return 0;
     }
     
@@ -104,10 +132,10 @@ int main(int argc, char *argv[]){
             write(output, &p1, sizeof(pedido));
             int bufferSize = 0;
             char buffer_output[1024];
-            while((bufferSize = read(input, buffer_output, sizeof(buffer_output))) > 0) { // fica à espera de receber a resposta do servidor
-                printf("HELLO\n");
-            }
-            printf("Recebi, obrigado!\n");
+            // while((bufferSize = read(input, buffer_output, sizeof(buffer_output))) > 0) { // fica à espera de receber a resposta do servidor
+            //     printf("HELLO\n");
+            // }
+            // printf("Recebi, obrigado!\n");
             return 0;
         }
         else{
