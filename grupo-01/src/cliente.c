@@ -83,9 +83,9 @@ int main(int argc, char *argv[]){
         int stop = 0;
         write(output, &p1, sizeof(pedido));
         int output_instancia[5][2] = {};
-        char str[1024];
+        char str[2048];
         int n = 0;
-        while((n = read(input, str, 1024)) > 0){
+        while((n = read(input, str, 2048)) > 0){
             write(1, str, n);
         }
         //memset(str, 0, sizeof(str));
@@ -103,6 +103,7 @@ int main(int argc, char *argv[]){
         // printf("filter eco: %d/%d (in use/total)\n", output_instancia[2][0], output_instancia[2][1]);
         // printf("filter rapido: %d/%d (in use/total)\n", output_instancia[3][0], output_instancia[3][1]);
         // printf("filter lento: %d/%d (in use/total)\n", output_instancia[4][0], output_instancia[4][1]);
+        memset(str, 0 ,sizeof(str));
         return 0;
     }
     

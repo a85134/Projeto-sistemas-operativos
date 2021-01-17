@@ -170,7 +170,7 @@ void ExecuteTransform(pedido p, config f[], int counter, int output)
                     memcpy(&file_filter, &filters_folder, sizeof(filters_folder));
                     //printf("filtrs folder size: %ld\n", sizeof(filters_folder));
                     file_filter[sizeof(filters_folder) - 1] = '/';
-                    memcpy(&file_filter[sizeof(filters_folder)], &(f[j].filter_type), strlen(f[j].filter_type));
+                    memcpy(&file_filter[sizeof(filters_folder)], &(f[j].filter_type), sizeof(f[j].filter_type));
                     //printf("file filter type size: %ld\n", strlen(f[j].filter_type));
                     printf("file filter: %s\n", file_filter);
                     printf("file input: %s\n", p.f_input);
@@ -226,7 +226,7 @@ void ExecuteTransform(pedido p, config f[], int counter, int output)
                     memcpy(&file_filter, &filters_folder, sizeof(filters_folder));
                     //printf("filtrs folder size: %ld\n", sizeof(filters_folder));
                     file_filter[sizeof(filters_folder) - 1] = '/';
-                    memcpy(&file_filter[sizeof(filters_folder)], &(f[j].filter_type), strlen(f[j].filter_type));
+                    memcpy(&file_filter[sizeof(filters_folder)], &(f[j].filter_type), sizeof(f[j].filter_type));
                     //printf("file filter type size: %ld\n", strlen(f[j].filter_type));
                     printf("file filter: %s\n", file_filter);
                     printf("file input: %s\n", p.f_input);
@@ -283,7 +283,7 @@ void ExecuteTransform(pedido p, config f[], int counter, int output)
                     memcpy(&file_filter, &filters_folder, sizeof(filters_folder));
                     //printf("filtrs folder size: %ld\n", sizeof(filters_folder));
                     file_filter[sizeof(filters_folder) - 1] = '/';
-                    memcpy(&file_filter[sizeof(filters_folder)], &(f[j].filter_type), strlen(f[j].filter_type));
+                    memcpy(&file_filter[sizeof(filters_folder)], &(f[j].filter_type), sizeof(f[j].filter_type));
                     //printf("file filter type size: %ld\n", strlen(f[j].filter_type));
                     printf("file filter: %s\n", file_filter);
                     printf("file input: %s\n", p.f_input);
@@ -340,7 +340,7 @@ void ExecuteTransform(pedido p, config f[], int counter, int output)
                     memcpy(&file_filter, &filters_folder, sizeof(filters_folder));
                     //printf("filtrs folder size: %ld\n", sizeof(filters_folder));
                     file_filter[sizeof(filters_folder) - 1] = '/';
-                    memcpy(&file_filter[sizeof(filters_folder)], &(f[j].filter_type), strlen(f[j].filter_type));
+                    memcpy(&file_filter[sizeof(filters_folder)], &(f[j].filter_type), sizeof(f[j].filter_type));
                     //printf("file filter type size: %ld\n", strlen(f[j].filter_type));
                     printf("file filter: %s\n", file_filter);
                     printf("file input: %s\n", p.f_input);
@@ -396,7 +396,7 @@ void ExecuteTransform(pedido p, config f[], int counter, int output)
                     memcpy(&file_filter, &filters_folder, sizeof(filters_folder));
                     //printf("filtrs folder size: %ld\n", sizeof(filters_folder));
                     file_filter[sizeof(filters_folder) - 1] = '/';
-                    memcpy(&file_filter[sizeof(filters_folder)], &(f[j].filter_type), strlen(f[j].filter_type));
+                    memcpy(&file_filter[sizeof(filters_folder)], &(f[j].filter_type), sizeof(f[j].filter_type));
                     //printf("file filter type size: %ld\n", strlen(f[j].filter_type));
                     printf("file filter: %s\n", file_filter);
                     printf("file input: %s\n", p.f_input);
@@ -467,13 +467,13 @@ void ExecuteTransform(pedido p, config f[], int counter, int output)
 void ExecuteStatus(int output)
 { 
     char task_answer[1024];
-    char str[1024];
+    char str[2048];
     char pid[50];
     // ESCREVER PARA O CLIENTE 
     for(int i = 0; i < 20; i++){
         if(pid, pr[i].pid != -1){
             sprintf(pid,"%d", pr[i].pid);
-            strcat(task_answer, "task with ");
+            strcat(task_answer, "task with pid ");
             strcat(task_answer, pid);
             strcat(task_answer, ": ");
             strcat(task_answer, "transform");
@@ -506,9 +506,10 @@ void ExecuteStatus(int output)
     
 
     
-    sprintf(str, "%s filter alto: %d/%d (in use/total)\nfilter baixo: %d/%d (in use/total)\nfilter eco: %d/%d (in use/total)\nfilter rapido: %d/%d (in use/total)\nfilter lento: %d/%d (in use/total)\n", task_answer, check_filters[0].n_instancia, file_configuration[0].n_instancia, check_filters[1].n_instancia, file_configuration[1].n_instancia, check_filters[2].n_instancia, file_configuration[2].n_instancia, check_filters[3].n_instancia, file_configuration[3].n_instancia, check_filters[4].n_instancia, file_configuration[4].n_instancia);
+    sprintf(str, "%sfilter alto: %d/%d (in use/total)\nfilter baixo: %d/%d (in use/total)\nfilter eco: %d/%d (in use/total)\nfilter rapido: %d/%d (in use/total)\nfilter lento: %d/%d (in use/total)\n", task_answer, check_filters[0].n_instancia, file_configuration[0].n_instancia, check_filters[1].n_instancia, file_configuration[1].n_instancia, check_filters[2].n_instancia, file_configuration[2].n_instancia, check_filters[3].n_instancia, file_configuration[3].n_instancia, check_filters[4].n_instancia, file_configuration[4].n_instancia);
+    
     printf("str: %s", str);
-    write(output, str, sizeof(str)); // Escreve os filtros em uso e totais 
+    write(output, str, 2048); // Escreve os filtros em uso e totais 
     memset(str, 0 ,sizeof(str));
 }
 
