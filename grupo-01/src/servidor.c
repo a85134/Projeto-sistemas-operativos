@@ -509,7 +509,9 @@ void ExecuteStatus(int output)
     sprintf(str, "%sfilter alto: %d/%d (in use/total)\nfilter baixo: %d/%d (in use/total)\nfilter eco: %d/%d (in use/total)\nfilter rapido: %d/%d (in use/total)\nfilter lento: %d/%d (in use/total)\n", task_answer, check_filters[0].n_instancia, file_configuration[0].n_instancia, check_filters[1].n_instancia, file_configuration[1].n_instancia, check_filters[2].n_instancia, file_configuration[2].n_instancia, check_filters[3].n_instancia, file_configuration[3].n_instancia, check_filters[4].n_instancia, file_configuration[4].n_instancia);
     
     printf("str: %s", str);
-    write(output, str, 2048); // Escreve os filtros em uso e totais 
+    int x = strlen(str);
+    printf("SIZOFFF X : %d\n", x);
+    write(output, str, strlen(str)); // Escreve os filtros em uso e totais 
     memset(str, 0 ,sizeof(str));
 }
 

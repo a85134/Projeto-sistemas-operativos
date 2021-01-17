@@ -85,24 +85,10 @@ int main(int argc, char *argv[]){
         int output_instancia[5][2] = {};
         char str[2048];
         int n = 0;
-        while((n = read(input, str, 2048)) > 0){
+        n = read(input, str, 2048);
+            printf("SIZEOFFF N: %d\n", n);
             write(1, str, n);
-        }
-        //memset(str, 0, sizeof(str));
-        //     read(input, &pr, sizeof(process)); // Lê o numero dos processos que tratam dos pedidos
-        // for(int k = 0; k < 20; k++){
-        //     if(pr[k].pid != 0){
-        //         printf("pid: %d\n", pr[k].pid); // pid de todos os processos que tratam dos pedidos
-        //     }
-        // }
-        // //int output_instancia_2[5][2];
-        // read(input, str, sizeof(str)); // Lê os filtros em uso e totais
-        //strcpy(output_instancia_2, output_instancia);strlen
-        // printf("filter alto: %d/%d (in use/total)\n", output_instancia[0][0], output_instancia[0][1]);
-        // printf("filter baixo: %d/%d (in use/total)\n", output_instancia[1][0], output_instancia[1][1]);
-        // printf("filter eco: %d/%d (in use/total)\n", output_instancia[2][0], output_instancia[2][1]);
-        // printf("filter rapido: %d/%d (in use/total)\n", output_instancia[3][0], output_instancia[3][1]);
-        // printf("filter lento: %d/%d (in use/total)\n", output_instancia[4][0], output_instancia[4][1]);
+        close(input);
         memset(str, 0 ,sizeof(str));
         return 0;
     }
