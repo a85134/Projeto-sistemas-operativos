@@ -77,17 +77,12 @@ int main(int argc, char *argv[]){
 
     if(memcmp(argv[1], status, strlen(status)) == 0 && argc == 2){ // Deteta que é status e procede ao seu pedido
         // pegar os argumentos da linha de comando e adicionar à estrutura para posteriormente enviar ao servidor
-        printf("Cliente a executar...\n");
         strcpy(p1.tipo, argv[1]);
-        printf("ENTROU1\n");
-        int stop = 0;
         write(output, &p1, sizeof(pedido));
-        int output_instancia[5][2] = {};
         char str[2048];
         int n = 0;
         n = read(input, str, 2048);
-            printf("SIZEOFFF N: %d\n", n);
-            write(1, str, n);
+        write(1, str, n);
         close(input);
         memset(str, 0 ,sizeof(str));
         return 0;
@@ -96,8 +91,6 @@ int main(int argc, char *argv[]){
     if(memcmp(argv[1], transform, strlen(transform)) == 0 && argc >= 5){ // Deteta que é transform e procede ao seu pedido
         // pegar os argumentos da linha de comando e adicionar à estrutura para posteriormente enviar ao servidor
         if(startsWith(file_input_confirmation, argv[2]) == true){
-            printf("Cliente a executar...\n");
-            printf("ENTROU2\n");
             strcpy(p1.tipo, argv[1]);
             strcpy(p1.f_input, argv[2]);
             strcpy(p1.f_output, argv[3]);
@@ -109,21 +102,9 @@ int main(int argc, char *argv[]){
                 
                 }
                 strcpy(p1.filtros[increment], filters[i-4]);
-                printf("PEDIDO Filtro: %s\n", p1.filtros[increment]);
                 increment++;
             }
-            printf("Pedido tipo: %s\n", p1.tipo);
-            printf("Pedido file_input: %s\n", p1.f_input);
-            printf("Pedido file_output: %s\n", p1.f_output);
-            printf("Pedido n_filters: %d\n", p1.n_filtros);
-            int stop = 0; // implementar ciclo ou não
             write(output, &p1, sizeof(pedido));
-            int bufferSize = 0;
-            char buffer_output[1024];
-            // while((bufferSize = read(input, buffer_output, sizeof(buffer_output))) > 0) { // fica à espera de receber a resposta do servidor
-            //     printf("HELLO\n");
-            // }
-            // printf("Recebi, obrigado!\n");
             return 0;
         }
         else{
