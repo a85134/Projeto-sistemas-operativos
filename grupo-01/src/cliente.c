@@ -85,9 +85,10 @@ int main(int argc, char *argv[]){
         int output_instancia[5][2] = {};
         char str[1024];
         int n = 0;
-        while((n = read(input, str, strlen(str))) > 0){
+        while((n = read(input, str, 1024)) > 0){
             write(1, str, n);
         }
+        //memset(str, 0, sizeof(str));
         //     read(input, &pr, sizeof(process)); // Lê o numero dos processos que tratam dos pedidos
         // for(int k = 0; k < 20; k++){
         //     if(pr[k].pid != 0){

@@ -39,6 +39,17 @@ typedef struct Pedido
 
 } pedido;
 
+typedef struct PedidoTranform
+{
+
+    char tipo[20];           // transform ou status
+    int n_filtros;           // numero de filtros
+    char f_input[1024];      // ficheiro input
+    char f_output[1024];     // ficheiro output
+    char filtros[128][1024]; // filtros
+
+} pedidoTransform;
+
 typedef struct Config
 {
 
@@ -61,6 +72,8 @@ typedef struct Process
 {
     int pid;     // pid correspondente ao processo
     char numero_filtros[5]; // alto(0), baixo(1), eco(2), rapido(3), lento(4)
+    char f_input[1024];      // ficheiro input
+    char f_output[1024];     // ficheiro output
 
 } process;
 
@@ -114,9 +127,11 @@ void sigchldhandler(int sig) // sinal que envia o pid do pedido terminado para a
                     }
                 }
             }
-            break;
             pr[k].pid = -1;
             memset(&pr[k].numero_filtros, 0, sizeof(pr[k].numero_filtros));
+            memset(&pr[k].f_input, 0, sizeof(pr[k].f_input));
+            memset(&pr[k].f_output, 0, sizeof(pr[k].f_output));
+            break;
         }
 
     }
@@ -449,37 +464,49 @@ void ExecuteTransform(pedido p, config f[], int counter, int output)
     _exit(0);
 }
 
-void ExecuteStatus(pedido p, int output, int pid, int count_pedidos)
+void ExecuteStatus(int output)
 { 
+    char task_answer[1024];
+    char str[1024];
     // ESCREVER PARA O CLIENTE 
-
-    char str[1024]; // buffer dos filtros em uso e totais
-    char tasks[1024];
-    char name_filters[50];
-    int d = 50;
-    char help[50];
-    printf("p.f_input STATUS : %s\n", p.f_input);
+    for(int i = 0; i < 20; i++){
+        if(pr[i].pid != -1){
+            strcat(task_answer, "task with ");
+            strcat(task_answer, pr[i].pid);
+            strcat(task_answer, ": ");
+            strcat(task_answer, "transform");
+            strcat(task_answer, " ");
+            strcat(task_answer, pr[i].f_input);
+            strcat(task_answer, " ");
+            strcat(task_answer, pr[i].f_output);
+            strcat(task_answer, " ");
+            for(int j = 0; j < pr[i].numero_filtros[0]; j++){ // alto
+                strcat(task_answer, "alto ");
+            }
+            for(int j = 0; j < pr[i].numero_filtros[1]; j++){ // alto
+                strcat(task_answer, "baixo ");
+            }
+            for(int j = 0; j < pr[i].numero_filtros[2]; j++){ // alto
+                strcat(task_answer, "eco ");
+            }
+            for(int j = 0; j < pr[i].numero_filtros[3]; j++){ // alto
+                strcat(task_answer, "rapido ");
+            }
+            for(int j = 0; j < pr[i].numero_filtros[4]; j++){ // alto
+                strcat(task_answer, "lento ");
+            }
+            strcat(task_answer, "\n");
+        }
+        
+    }
+    // printf("TASK_ANSWER: %s\n",task_answer);
     
-    
-    // strcpy(help, p.f_input);
-    // // char help[strlen(p.f_input)+1];
-    // // memset(&help, 0 , sizeof(help));
-    // // memcpy(&help, p.f_input, strlen(p.f_input));
-    // printf("help: %s\n", help);
 
-    // for(int i = 0; i < p.n_filtros; i++){
-    //     strcpy(name_filters, p.filtros[i]);
-    //     printf("name_filters: %s", name_filters);
-    // }
-    // for(int i = 1 ; i < count_pedidos; i++){
-    //     sprintf(tasks, "task #%d: transform %s %s \n", count_pedidos, help, name_filters);
-    // }
-    // printf("task: %s", tasks);
-    // // write(output, tasks, sizeof(tasks));
-    // // sprintf(str, "pid: %d\nfilter alto: %d/%d (in use/total)\nfilter baixo: %d/%d (in use/total)\nfilter eco: %d/%d (in use/total)\nfilter rapido: %d/%d (in use/total)\nfilter lento: %d/%d (in use/total)\n", pid, check_filters[0].n_instancia, file_configuration[0].n_instancia, check_filters[1].n_instancia, file_configuration[1].n_instancia, check_filters[2].n_instancia, file_configuration[2].n_instancia, check_filters[3].n_instancia, file_configuration[3].n_instancia, check_filters[4].n_instancia, file_configuration[4].n_instancia);
-    // // printf("task: %s", tasks);
-    // // printf("str: %s", str);
-    // // write(output, str, sizeof(str)); // Escreve os filtros em uso e totais 
+    
+    sprintf(str, "%sfilter alto: %d/%d (in use/total)\nfilter baixo: %d/%d (in use/total)\nfilter eco: %d/%d (in use/total)\nfilter rapido: %d/%d (in use/total)\nfilter lento: %d/%d (in use/total)\n", task_answer, check_filters[0].n_instancia, file_configuration[0].n_instancia, check_filters[1].n_instancia, file_configuration[1].n_instancia, check_filters[2].n_instancia, file_configuration[2].n_instancia, check_filters[3].n_instancia, file_configuration[3].n_instancia, check_filters[4].n_instancia, file_configuration[4].n_instancia);
+    printf("str: %s", str);
+    write(output, str, sizeof(str)); // Escreve os filtros em uso e totais 
+    memset(str, 0 ,sizeof(str));
 }
 
 int main(int argc, char *argv[])
@@ -491,6 +518,8 @@ int main(int argc, char *argv[])
     for(int k = 0; k < 20; k++){
         memset(&pr[k].numero_filtros, 0, sizeof(pr[k].numero_filtros));
         pr[k].pid = -1;
+        memset(&pr[k].f_input, 0, sizeof(pr[k].f_input));
+        memset(&pr[k].f_output, 0, sizeof(pr[k].f_output));
     }
     
     if (argc < 3)
@@ -633,10 +662,23 @@ int main(int argc, char *argv[])
             {
                 //printf("Pedido recebido filtros: %s\n", p1.filtros[i]);
             }
+            pedidoTransform task;
             //printf("Pedido recebido n_filtros: %d\n", p1.n_filtros);
             if (memcmp(p1.tipo, transform, strlen(transform)) == 0)
             { // se for transform a receber, processa os dados
                 
+                
+                strcpy(task.f_input, p1.f_input);
+                strcpy(task.f_output, p1.f_output);
+                task.n_filtros = p1.n_filtros;
+                for (int i = 0; i < p1.n_filtros; i++)
+                {
+                    strcpy(task.filtros[i], p1.filtros[i]);
+                }
+                printf("AQUIII FDP: %s\n", task.f_input);
+                printf("AQUIII FDP: %s\n", task.f_output);
+                printf("AQUIII FDP: %d\n", task.n_filtros);
+
                 // Recebe pedido e cria filho para tratar do pedido
                 // Dentro da função,
                 int counter_alto = 0;
@@ -769,6 +811,8 @@ int main(int argc, char *argv[])
                             pr[k].numero_filtros[2] = counter_eco;
                             pr[k].numero_filtros[3] = counter_rapido;
                             pr[k].numero_filtros[4] = counter_lento;
+                            strcpy(pr[k].f_input , p1.f_input);
+                            strcpy(pr[k].f_output , p1.f_output);
                             pr[k].pid = -1;
                             break;
                         }
@@ -808,7 +852,7 @@ int main(int argc, char *argv[])
             { // se for status a receber, envia o status do servidor
                 printf("ENTROU STATUS \n");
                 if(!fork()){
-                    ExecuteStatus(p1, output, getpid(), count_pedidos);
+                    ExecuteStatus(output);
                     _exit(0);
                 }
                 // chama função que faz o status e retorna o resultado
